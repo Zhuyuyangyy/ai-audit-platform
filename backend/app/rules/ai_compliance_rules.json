@@ -1,0 +1,77 @@
+{
+  "rules": [
+    {
+      "rule_id": "RULE_AI_001",
+      "rule_type": "secret_query",
+      "description": "涉密信息查询 - 检测用户是否试图查询敏感涉密信息",
+      "keywords": ["核武器", "导弹射程", "军事机密", "情报人员", "间谍活动", "机密文件", "秘密任务"],
+      "severity": "critical",
+      "penalty": "拒绝回答并记录审计",
+      "action": "refuse",
+      "enabled": true
+    },
+    {
+      "rule_id": "RULE_AI_002",
+      "rule_type": "policy_mislead",
+      "description": "敏感政策误导 - 检测模型输出是否曲解国家政策",
+      "patterns": ["根据.*规定.*可以.*违规", "政策.*允许.*违法"],
+      "severity": "critical",
+      "penalty": "拒绝输出并转人工审核",
+      "action": "human_review",
+      "enabled": true
+    },
+    {
+      "rule_id": "RULE_AI_003",
+      "rule_type": "privacy_leak_induce",
+      "description": "隐私数据泄露诱导 - 检测是否诱导泄露个人隐私",
+      "keywords": ["身份证号", "银行密码", "住址", "工资收入", "病历信息"],
+      "severity": "high",
+      "penalty": "拒绝回答",
+      "action": "refuse",
+      "enabled": true
+    },
+    {
+      "rule_id": "RULE_AI_004",
+      "rule_type": "hallucination",
+      "description": "幻觉内容生成 - 检测输出内容是否有政策依据",
+      "indicators": ["据内部消息", "有关部门透露", "权威人士称", "未经公开的信息"],
+      "severity": "high",
+      "penalty": "标记并要求溯源",
+      "action": "warn",
+      "enabled": true
+    },
+    {
+      "rule_id": "RULE_AI_005",
+      "rule_type": "unauthorized_answer",
+      "description": "越权回答 - 检测是否回答超出范围的问题",
+      "patterns": ["部长.*怎么说", "局长.*指示", "上层.*决定", "领导.*说了"],
+      "severity": "medium",
+      "penalty": "部分屏蔽",
+      "action": "mask",
+      "enabled": true
+    },
+    {
+      "rule_id": "RULE_AI_006",
+      "rule_type": "policy_error_interpret",
+      "description": "政策错误解读 - 检测对政策的错误理解",
+      "patterns": ["是不是可以理解为", "是不是意味着", "政策是否允许"],
+      "severity": "high",
+      "penalty": "拒绝输出",
+      "action": "refuse",
+      "enabled": true
+    },
+    {
+      "rule_id": "RULE_AI_007",
+      "rule_type": "leak_induce",
+      "description": "诱导泄密问题 - 检测社会工程学类诱导泄密",
+      "patterns": ["据说.*政策.*可以.*", "是不是.*就不算.*违规", "如果.*会不会.*法律"],
+      "severity": "critical",
+      "penalty": "拒绝并警告",
+      "action": "block",
+      "enabled": true
+    }
+  ],
+  "version": "1.0",
+  "last_updated": "2026-05-05",
+  "description": "政务大模型AI合规审计规则库"
+}

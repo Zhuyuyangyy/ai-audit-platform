@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>政企大模型应用安全合规审计系统 V1.0</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif; background: #0a0e27; color: #c4cde0; min-height: 100vh; }
+    #app { display: flex; height: 100vh; overflow: hidden; }
+
+    /* 左侧面板 */
+    .left-panel { width: 380px; border-right: 1px solid #1e2a4a; display: flex; flex-direction: column; }
+    .panel-header { padding: 16px 20px; background: linear-gradient(135deg, #1a237e, #0d47a1); border-bottom: 1px solid #1e2a4a; }
+    .panel-header h1 { font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 4px; }
+    .panel-header p { font-size: 12px; color: #90caf9; }
+    .panel-tabs { display: flex; background: #0f1535; border-bottom: 1px solid #1e2a4a; }
+    .tab-btn { flex: 1; padding: 12px 8px; text-align: center; font-size: 13px; color: #78909c; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+    .tab-btn.active { color: #42a5f5; border-bottom-color: #42a5f5; background: #1a2744; }
+    .tab-btn:hover { color: #90caf9; }
+
+    /* 审计概览 */
+    .audit-overview { padding: 16px; }
+    .risk-gauge { width: 100%; height: 180px; }
+    .stat-row { display: flex; gap: 8px; margin-top: 12px; }
+    .stat-card { flex: 1; background: #111a33; border: 1px solid #1e2a4a; border-radius: 8px; padding: 12px; text-align: center; }
+    .stat-card .label { font-size: 11px; color: #546e7a; margin-bottom: 4px; }
+    .stat-card .value { font-size: 20px; font-weight: 700; }
+    .stat-card .value.safe { color: #4caf50; }
+    .stat-card .value.low { color: #8bc34a; }
+    .stat-card .value.medium { color: #ff9800; }
+    .stat-card .value.high { color: #f44336; }
+    .stat-card .value.critical { color: #b71c1c; }
+
+    /* 规则检测列表 */
+    .rules-list { padding: 16px; flex: 1; overflow-y: auto; }
+    .rule-item { background: #111a33; border: 1px solid #1e2a4a; border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+    .rule-item.critical { border-left: 3px solid #f44336; }
+    .rule-item.high { border-left: 3px solid #ff9800; }
+    .rule-item.medium { border-left: 3px solid #ffc107; }
+    .rule-item.low { border-left: 3px solid #8bc34a; }
+    .rule-item .rule-id { font-size: 11px; color: #546e7a; margin-bottom: 4px; }
+    .rule-item .rule-desc { font-size: 13px; color: #eceff1; }
+    .rule-item .rule-keywords { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+    .keyword-tag { background: #1e2a4a; color: #90caf9; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+
+    /* RAG溯源面板 */
+    .rag-panel { padding: 16px; flex: 1; overflow-y: auto; }
+    .rag-item { background: #111a33; border: 1px solid #1e2a4a; border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+    .rag-item .claim { font-size: 13px; color: #eceff1; margin-bottom: 8px; padding: 8px; background: #0f1535; border-radius: 4px; }
+    .rag-item .evidence { font-size: 12px; color: #80cbc4; padding: 8px; background: #0d1f2d; border-radius: 4px; border-left: 3px solid #00897b; }
+    .rag-item .evidence.unverified { border-left-color: #ff5722; color: #ff8a65; background: #2d1f1a; }
+    .rag-item .source { font-size: 11px; color: #546e7a; margin-top: 6px; }
+
+    /* 中间聊天区 */
+    .chat-area { flex: 1; display: flex; flex-direction: column; background: #0a0e27; }
+    .chat-header { padding: 14px 20px; background: #111a33; border-bottom: 1px solid #1e2a4a; display: flex; align-items: center; justify-content: space-between; }
+    .chat-header .title { font-size: 15px; color: #eceff1; }
+    .chat-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #78909c; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; }
+    .status-dot.offline { background: #f44336; }
+
+    .chat-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+    .message { max-width: 80%; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .message.user { align-self: flex-end; }
+    .message.assistant { align-self: flex-start; }
+    .message.system { align-self: center; max-width: 90%; }
+    .message .bubble { padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.6; }
+    .message.user .bubble { background: linear-gradient(135deg, #1a3a6b, #1565c0); color: #fff; border-bottom-right-radius: 4px; }
+    .message.assistant .bubble { background: #1a2744; color: #eceff1; border-bottom-left-radius: 4px; }
+    .message.system .bubble { background: #1e2a4a; color: #ff9800; font-size: 12px; text-align: center; padding: 10px 16px; border-radius: 8px; }
+    .message.system.blocked .bubble { background: #2d1f1a; color: #f44336; border: 1px solid #f44336; }
+    .message.system.warn .bubble { background: #2d2a1a; color: #ff9800; border: 1px solid #ff9800; }
+
+    /* Fuse Action Banner */
+    .fuse-banner { margin: 8px 0; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; text-align: center; }
+    .fuse-banner.allow { background: #1b3a1f; color: #4caf50; border: 1px solid #4caf50; }
+    .fuse-banner.warn { background: #2d2a1a; color: #ff9800; border: 1px solid #ff9800; }
+    .fuse-banner.mask { background: #2d2a1a; color: #ffc107; border: 1px solid #ffc107; }
+    .fuse-banner.refuse { background: #2d1f1a; color: #f44336; border: 1px solid #f44336; }
+    .fuse-banner.human_review { background: #1a237e; color: #90caf9; border: 1px solid #42a5f5; }
+    .fuse-banner.block { background: #4a0000; color: #ff5252; border: 1px solid #f44336; }
+
+    /* 输入区 */
+    .chat-input-area { padding: 16px 20px; background: #111a33; border-top: 1px solid #1e2a4a; }
+    .input-row { display: flex; gap: 10px; }
+    .chat-input { flex: 1; background: #0f1535; border: 1px solid #1e2a4a; border-radius: 8px; padding: 12px 16px; color: #eceff1; font-size: 14px; outline: none; transition: border 0.2s; }
+    .chat-input:focus { border-color: #42a5f5; }
+    .chat-input::placeholder { color: #546e7a; }
+    .send-btn { background: linear-gradient(135deg, #1a3a6b, #1565c0); color: #fff; border: none; border-radius: 8px; padding: 12px 24px; font-size: 14px; cursor: pointer; transition: all 0.2s; }
+    .send-btn:hover { background: linear-gradient(135deg, #1565c0, #1976d2); }
+    .send-btn:disabled { background: #1e2a4a; color: #546e7a; cursor: not-allowed; }
+
+    /* 右侧面板 */
+    .right-panel { width: 320px; border-left: 1px solid #1e2a4a; display: flex; flex-direction: column; }
+    .right-panel .panel-header { background: linear-gradient(135deg, #1b3a1f, #2e7d32); }
+    .radar-container { padding: 16px; height: 200px; }
+    .audit-logs { flex: 1; overflow-y: auto; padding: 12px; }
+    .log-item { background: #111a33; border: 1px solid #1e2a4a; border-radius: 6px; padding: 10px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
+    .log-item:hover { border-color: #42a5f5; }
+    .log-item .log-time { font-size: 11px; color: #546e7a; margin-bottom: 4px; }
+    .log-item .log-prompt { font-size: 12px; color: #90caf9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .log-item .log-meta { display: flex; justify-content: space-between; margin-top: 6px; }
+    .log-item .risk-badge { font-size: 11px; padding: 2px 6px; border-radius: 4px; }
+    .risk-badge.safe { background: #1b3a1f; color: #4caf50; }
+    .risk-badge.low { background: #1e3a1f; color: #8bc34a; }
+    .risk-badge.medium { background: #3a3010; color: #ffc107; }
+    .risk-badge.high { background: #3a2010; color: #f44336; }
+    .risk-badge.critical { background: #4a1010; color: #ff5252; }
+    .log-item .fuse-badge { font-size: 11px; padding: 2px 6px; border-radius: 4px; }
+    .fuse-badge.allow { background: #1b3a1f; color: #4caf50; }
+    .fuse-badge.warn { background: #3a3010; color: #ffc107; }
+    .fuse-badge.mask { background: #3a3010; color: #ff9800; }
+    .fuse-badge.refuse { background: #4a1010; color: #f44336; }
+    .fuse-badge.human_review { background: #1a237e; color: #90caf9; }
+
+    /* 加载动画 */
+    .loading-dots { display: flex; gap: 4px; }
+    .loading-dots span { width: 6px; height: 6px; background: #42a5f5; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out; }
+    .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+    /* 免责声明 */
+    .disclaimer { text-align: center; padding: 8px; font-size: 11px; color: #546e7a; background: #0f1535; border-top: 1px solid #1e2a4a; }
+    .disclaimer strong { color: #ff9800; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- 左侧面板 -->
+  <div class="left-panel">
+    <div class="panel-header">
+      <h1>🛡️ AI合规审计系统</h1>
+      <p>政企大模型应用安全合规审计 V1.0</p>
+    </div>
+
+    <div class="panel-tabs">
+      <div class="tab-btn" :class="{active: leftTab === 'overview'}" @click="leftTab = 'overview'">审计概览</div>
+      <div class="tab-btn" :class="{active: leftTab === 'rules'}" @click="leftTab = 'rules'">规则检测</div>
+      <div class="tab-btn" :class="{active: leftTab === 'rag'}" @click="leftTab = 'rag'">RAG溯源</div>
+    </div>
+
+    <!-- 审计概览 -->
+    <div v-if="leftTab === 'overview'" class="audit-overview">
+      <div class="risk-gauge" ref="riskGauge"></div>
+      <div class="stat-row">
+        <div class="stat-card">
+          <div class="label">风险等级</div>
+          <div class="value" :class="currentRiskLevel">{{ currentRiskLevel.toUpperCase() }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">会话次数</div>
+          <div class="value" style="color:#90caf9">{{ sessionCount }}</div>
+        </div>
+      </div>
+      <div style="margin-top:12px; font-size:12px; color:#546e7a;">
+        最后审计时间: {{ lastAuditTime || '无' }}
+      </div>
+    </div>
+
+    <!-- 规则检测 -->
+    <div v-if="leftTab === 'rules'" class="rules-list">
+      <div v-if="currentDetectedRules.length === 0" style="text-align:center; color:#546e7a; margin-top:40px;">
+        暂无规则触发
+      </div>
+      <div
+        v-for="(rule, idx) in currentDetectedRules"
+        :key="idx"
+        class="rule-item"
+        :class="getSeverityClass(getRuleSeverity(rule))"
+      >
+        <div class="rule-id">{{ rule.rule_id }}</div>
+        <div class="rule-desc">{{ rule.description }}</div>
+        <div v-if="rule.matched_keywords && rule.matched_keywords.length" class="rule-keywords">
+          <span v-for="kw in rule.matched_keywords" :key="kw" class="keyword-tag">{{ kw }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- RAG溯源 -->
+    <div v-if="leftTab === 'rag'" class="rag-panel">
+      <div v-if="currentRAGTrace.length === 0" style="text-align:center; color:#546e7a; margin-top:40px;">
+        暂无RAG溯源记录
+      </div>
+      <div
+        v-for="(trace, idx) in currentRAGTrace"
+        :key="idx"
+        class="rag-item"
+      >
+        <div class="claim">{{ trace.claim }}</div>
+        <div class="evidence" :class="{unverified: !trace.evidence}">
+          {{ trace.evidence || '⚠️ 未找到对应政策依据' }}
+        </div>
+        <div v-if="trace.policy_title" class="source">📄 {{ trace.policy_title }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 中间聊天区 -->
+  <div class="chat-area">
+    <div class="chat-header">
+      <div>
+        <div class="title">💬 大模型合规对话模拟</div>
+        <div style="font-size:11px; color:#546e7a; margin-top:2px;">会话ID: {{ sessionId }}</div>
+      </div>
+      <div class="chat-status">
+        <div class="status-dot"></div>
+        <span>系统在线</span>
+      </div>
+    </div>
+
+    <div class="chat-messages" ref="messagesContainer">
+      <!-- 欢迎消息 -->
+      <div class="message system">
+        <div class="bubble">
+          🛡️ 欢迎使用政企大模型应用安全合规审计系统<br>
+          本系统对所有输入输出进行实时审计，包括：敏感词检测、RAG溯源、风险熵评分、熔断控制<br>
+          <strong>⚠️ 本系统为辅助审计工具，不替代人工决策</strong>
+        </div>
+      </div>
+
+      <!-- 聊天消息 -->
+      <div
+        v-for="(msg, idx) in messages"
+        :key="idx"
+        class="message"
+        :class="msg.role"
+      >
+        <div class="bubble">{{ msg.content }}</div>
+      </div>
+
+      <!-- Fuse Banner -->
+      <div v-if="lastFuseAction && lastFuseAction !== 'allow'" class="fuse-banner" :class="lastFuseAction">
+        {{ getFuseActionText(lastFuseAction) }}
+      </div>
+
+      <!-- 加载中 -->
+      <div v-if="loading" class="message assistant">
+        <div class="bubble">
+          <div class="loading-dots">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chat-input-area">
+      <div class="input-row">
+        <input
+          v-model="inputText"
+          class="chat-input"
+          placeholder="输入问题进行审计测试..."
+          :disabled="loading"
+          @keyup.enter="sendMessage"
+        >
+        <button class="send-btn" @click="sendMessage" :disabled="loading || !inputText.trim()">
+          发送审计
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右侧面板 -->
+  <div class="right-panel">
+    <div class="panel-header">
+      <h1>📊 风险雷达图</h1>
+    </div>
+    <div class="radar-container" ref="radarChart"></div>
+
+    <div class="panel-header" style="background: linear-gradient(135deg, #1b3a1f, #2e7d32); padding: 12px 16px;">
+      <div style="font-size:13px; color:#fff;">📋 审计日志</div>
+    </div>
+    <div class="audit-logs">
+      <div v-if="auditLogs.length === 0" style="text-align:center; color:#546e7a; margin-top:20px; font-size:12px;">
+        暂无审计记录
+      </div>
+      <div
+        v-for="log in auditLogs"
+        :key="log.id"
+        class="log-item"
+        @click="showLogDetail(log)"
+      >
+        <div class="log-time">{{ log.created_at }}</div>
+        <div class="log-prompt">{{ log.prompt }}</div>
+        <div class="log-meta">
+          <span class="risk-badge" :class="log.risk_level">{{ log.risk_level.toUpperCase() }}</span>
+          <span class="fuse-badge" :class="log.fuse_action">{{ getFuseActionText(log.fuse_action) }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部免责声明 -->
+  <div class="disclaimer" style="position:fixed; bottom:0; left:0; right:0;">
+    <strong>⚠️ 免责声明：</strong>本系统为辅助审计工具，所有输出结果仅供参考，不替代人工专业判断。如有重要决策，请咨询专业人员。
+  </div>
+</div>
+
+<script>
+const { createApp, ref, reactive, onMounted, nextTick, watch } = Vue;
+
+createApp({
+  setup() {
+    const API_BASE = 'http://localhost:8014/api/v1';
+
+    const sessionId = ref('session_' + Math.random().toString(36).substr(2, 9));
+    const inputText = ref('');
+    const messages = ref([]);
+    const loading = ref(false);
+    const leftTab = ref('overview');
+    const sessionCount = ref(0);
+    const lastAuditTime = ref('');
+
+    // 当前审计结果
+    const currentRiskScore = ref(0);
+    const currentRiskLevel = ref('safe');
+    const currentDetectedRules = ref([]);
+    const lastFuseAction = ref('');
+    const currentRAGTrace = ref([]);
+    const auditLogs = ref([]);
+
+    // 雷达图
+    const radarChart = ref(null);
+    const riskGauge = ref(null);
+    let radarChartInstance = null;
+    let gaugeChartInstance = null;
+
+    // Demo responses for when backend is not available
+    const DEMO_RESPONSES = [
+      "根据《中华人民共和国网络安全法》，网络运营者应当采取技术措施和其他必要措施，确保其收集的个人信息安全。针对您的问题，建议通过正规渠道咨询专业人士。",
+      "根据《生成式人工智能服务管理暂行办法》，生成式人工智能服务的提供者应当遵守法律法规，坚持正确的政治方向、舆论导向和价值取向。",
+      "关于政策解读，建议参考官方发布的相关政策文件，或咨询相关部门获取权威解读。",
+      "根据数据安全相关法规，数据处理应当遵循合法、正当、必要的原则。您的这个问题建议通过官方渠道获取准确信息。",
+      "政务大模型在回答涉及政策性问题时，应当以官方政策文件为依据，避免做出未经证实的解读。"
+    ];
+
+    function getRandomDemoResponse() {
+      return DEMO_RESPONSES[Math.floor(Math.random() * DEMO_RESPONSES.length)];
+    }
+
+    async function sendMessage() {
+      if (!inputText.value.trim() || loading.value) return;
+
+      const userInput = inputText.value.trim();
+      inputText.value = '';
+      sessionCount.value++;
+
+      messages.value.push({ role: 'user', content: userInput });
+      loading.value = true;
+
+      try {
+        // Try to call real backend
+        const response = await fetch(`${API_BASE}/audit_interaction`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: 'user_demo',
+            session_id: sessionId.value,
+            prompt: userInput,
+            output: null,
+            user_role: 'citizen'
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          handleAuditResult(result, userInput);
+        } else {
+          throw new Error('Backend not available');
+        }
+      } catch (e) {
+        // Use demo response
+        const demoOutput = getRandomDemoResponse();
+        messages.value.push({ role: 'assistant', content: demoOutput });
+
+        // Simulate audit result
+        const simResult = simulateAudit(userInput, demoOutput);
+        handleAuditResult(simResult, userInput, true);
+      }
+
+      loading.value = false;
+      await nextTick();
+      scrollToBottom();
+    }
+
+    function handleAuditResult(result, userInput, isDemo = false) {
+      // 更新当前审计结果
+      currentRiskScore.value = result.final_risk_score || result.prompt_audit?.risk_score || 0;
+      currentRiskLevel.value = result.final_risk_level || result.prompt_audit?.risk_level || 'safe';
+      currentDetectedRules.value = result.prompt_audit?.detected_rules || [];
+      lastFuseAction.value = result.fuse_action || result.prompt_audit?.fuse_action || 'allow';
+      currentRAGTrace.value = result.rag_trace || [];
+
+      // 如果有输出审计，也模拟输出
+      if (result.prompt_audit?.allowed && lastFuseAction.value === 'allow') {
+        const output = result.output_audit ? result.prompt_audit : null;
+        if (!output) {
+          messages.value.push({ role: 'assistant', content: getRandomDemoResponse() });
+        }
+      }
+
+      // 如果熔断，展示系统消息
+      if (lastFuseAction.value === 'refuse') {
+        messages.value.push({
+          role: 'system',
+          content: '⛔ 审计拒绝：该问题已被系统拒绝回答，原因：' + (result.prompt_audit?.review_comment || '检测到高风险内容')
+        });
+      } else if (lastFuseAction.value === 'human_review') {
+        messages.value.push({
+          role: 'system',
+          content: '⚠️ 转人工审核：该问题已转交人工审核，请等待专业人员处理'
+        });
+      } else if (lastFuseAction.value === 'warn') {
+        messages.value.push({
+          role: 'system',
+          content: '⚡ 风险警告：内容已通过审核但存在轻微风险，已记录日志'
+        });
+      }
+
+      // 更新审计时间
+      lastAuditTime.value = new Date().toLocaleTimeString('zh-CN');
+
+      // 更新雷达图
+      updateRadarChart(result);
+
+      // 更新仪表盘
+      updateGauge();
+
+      // 添加到审计日志
+      auditLogs.value.unshift({
+        id: Date.now(),
+        prompt: userInput,
+        risk_score: currentRiskScore.value,
+        risk_level: currentRiskLevel.value,
+        fuse_action: lastFuseAction.value,
+        created_at: new Date().toLocaleTimeString('zh-CN')
+      });
+
+      // 如果日志过多，限制显示
+      if (auditLogs.value.length > 20) {
+        auditLogs.value = auditLogs.value.slice(0, 20);
+      }
+
+      // 如果有输出，调用输出审计
+      if (result.output_audit) {
+        messages.value.push({ role: 'assistant', content: result.output_audit });
+      }
+    }
+
+    function simulateAudit(prompt, output) {
+      let score = 0;
+      let level = 'safe';
+      let rules = [];
+      let fuse = 'allow';
+
+      // 简单规则模拟
+      const secretWords = ['核武器', '军事机密', '间谍'];
+      const privacyWords = ['身份证', '密码', '银行'];
+      const misleadPatterns = ['是不是可以理解为', '是不是意味着'];
+
+      for (const w of secretWords) {
+        if (prompt.includes(w)) {
+          score += 40;
+          rules.push({ rule_id: 'RULE_AI_001', description: '涉密信息查询', severity: 'critical' });
+        }
+      }
+      for (const w of privacyWords) {
+        if (prompt.includes(w)) {
+          score += 30;
+          rules.push({ rule_id: 'RULE_AI_003', description: '隐私数据泄露诱导', severity: 'high' });
+        }
+      }
+      for (const p of misleadPatterns) {
+        if (prompt.includes(p)) {
+          score += 25;
+          rules.push({ rule_id: 'RULE_AI_006', description: '政策错误解读诱导', severity: 'high' });
+        }
+      }
+
+      // 幻觉检测
+      const hallucinationIndicators = ['据内部消息', '有关部门透露'];
+      let hallucinationCount = 0;
+      for (const ind of hallucinationIndicators) {
+        if (output.includes(ind)) hallucinationCount++;
+      }
+      if (hallucinationCount > 0) {
+        score += 15 + hallucinationCount * 10;
+        rules.push({ rule_id: 'RULE_AI_004', description: '幻觉内容生成', severity: 'high' });
+      }
+
+      score = Math.min(score, 100);
+
+      if (score >= 80) level = 'critical';
+      else if (score >= 60) level = 'high';
+      else if (score >= 40) level = 'medium';
+      else if (score >= 20) level = 'low';
+      else level = 'safe';
+
+      if (score >= 80) fuse = 'refuse';
+      else if (score >= 60) fuse = 'human_review';
+      else if (score >= 40) fuse = 'warn';
+      else if (score >= 20) fuse = 'mask';
+
+      // RAG模拟
+      const ragTrace = [
+        { claim: output.substring(0, 50) + '...', evidence: '《中华人民共和国网络安全法》第三条', policy_title: '网络安全法', confidence: 0.85 }
+      ];
+
+      return {
+        audit_id: 'demo_' + Date.now(),
+        prompt_audit: { allowed: fuse !== 'refuse' && fuse !== 'block', risk_score: score, risk_level: level, detected_rules: rules, fuse_action: fuse, review_comment: 'Demo审计结果' },
+        final_risk_score: score,
+        final_risk_level: level,
+        fuse_action: fuse,
+        rag_trace: ragTrace
+      };
+    }
+
+    function getSeverityClass(severity) {
+      return severity || 'low';
+    }
+
+    function getRuleSeverity(rule) {
+      return rule?.severity || 'low';
+    }
+
+    function getFuseActionText(action) {
+      const map = {
+        'allow': '放行',
+        'warn': '警告',
+        'mask': '屏蔽',
+        'refuse': '拒绝',
+        'human_review': '人工审核',
+        'block': '熔断'
+      };
+      return map[action] || action;
+    }
+
+    function showLogDetail(log) {
+      currentRiskScore.value = log.risk_score;
+      currentRiskLevel.value = log.risk_level;
+      lastFuseAction.value = log.fuse_action;
+      leftTab.value = 'overview';
+      updateGauge();
+    }
+
+    function scrollToBottom() {
+      const el = document.querySelector('.chat-messages');
+      if (el) el.scrollTop = el.scrollHeight;
+    }
+
+    function initRadarChart() {
+      if (!radarChart.value) return;
+      radarChartInstance = echarts.init(radarChart.value);
+      const option = {
+        backgroundColor: 'transparent',
+        radar: {
+          indicator: [
+            { name: '涉密风险', max: 100 },
+            { name: '隐私风险', max: 100 },
+            { name: '幻觉风险', max: 100 },
+            { name: '政策错误', max: 100 },
+            { name: '社工风险', max: 100 }
+          ],
+          radius: '65%',
+          splitNumber: 4,
+          axisName: { color: '#78909c', fontSize: 11 },
+          splitLine: { lineStyle: { color: '#1e2a4a' } },
+          splitArea: { areaStyle: { color: ['#0f1535', '#111a33'] } },
+          axisLine: { lineStyle: { color: '#1e2a4a' } }
+        },
+        series: [{
+          type: 'radar',
+          data: [{
+            value: [0, 0, 0, 0, 0],
+            name: '风险雷达',
+            areaStyle: { color: 'rgba(30, 70, 180, 0.3)' },
+            lineStyle: { color: '#42a5f5', width: 2 },
+            symbol: 'circle',
+            symbolSize: 6
+        }]
+      }]
+      };
+      radarChartInstance.setOption(option);
+    }
+
+    function initGauge() {
+      if (!riskGauge.value) return;
+      gaugeChartInstance = echarts.init(riskGauge.value);
+      updateGauge();
+    }
+
+    function updateGauge() {
+      if (!gaugeChartInstance) return;
+      const score = currentRiskScore.value;
+      let color = '#4caf50';
+      if (score >= 80) color = '#b71c1c';
+      else if (score >= 60) color = '#f44336';
+      else if (score >= 40) color = '#ff9800';
+      else if (score >= 20) color = '#8bc34a';
+
+      gaugeChartInstance.setOption({
+        series: [{
+          type: 'gauge',
+          startAngle: 200,
+          endAngle: -20,
+          min: 0,
+          max: 100,
+          splitNumber: 5,
+          radius: '90%',
+          center: ['50%', '60%'],
+          axisLine: { lineStyle: { width: 8, color: [[1, '#1e2a4a']] } },
+          pointer: { itemStyle: { color: color }, width: 4, length: '60%' },
+          axisTick: { distance: -20, length: 5, lineStyle: { color: '#546e7a' } },
+          splitLine: { distance: -25, length: 8, lineStyle: { color: '#546e7a' } },
+          axisLabel: { color: '#78909c', fontSize: 10, distance: 15 },
+          detail: {
+            valueAnimation: true,
+            formatter: '{value}',
+            color: color,
+            fontSize: 28,
+            offsetCenter: [0, '30%']
+          },
+          data: [{ value: score }]
+        }]
+      });
+    }
+
+    function updateRadarChart(result) {
+      if (!radarChartInstance) return;
+      // 从结果中提取维度分数
+      const breakdown = result.dimension_breakdown || {
+        secret: currentRiskScore.value * 0.8,
+        privacy: currentRiskScore.value * 0.6,
+        hallucination: currentRiskScore.value * 0.5,
+        policy_error: currentRiskScore.value * 0.7,
+        social_engineering: currentRiskScore.value * 0.4
+      };
+
+      radarChartInstance.setOption({
+        series: [{
+          data: [{
+            value: [
+              Math.min(breakdown.secret || 0, 100),
+              Math.min(breakdown.privacy || 0, 100),
+              Math.min(breakdown.hallucination || 0, 100),
+              Math.min(breakdown.policy_error || 0, 100),
+              Math.min(breakdown.social_engineering || 0, 100)
+            ]
+          }]
+        }]
+      });
+    }
+
+    onMounted(() => {
+      initRadarChart();
+      initGauge();
+
+      // 定期更新仪表盘
+      setInterval(() => {
+        if (currentRiskScore.value > 0) updateGauge();
+      }, 2000);
+    });
+
+    return {
+      sessionId, inputText, messages, loading, leftTab,
+      sessionCount, lastAuditTime, currentRiskScore, currentRiskLevel,
+      currentDetectedRules, lastFuseAction, currentRAGTrace, auditLogs,
+      radarChart, riskGauge,
+      sendMessage, getSeverityClass, getRuleSeverity, getFuseActionText, showLogDetail
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
