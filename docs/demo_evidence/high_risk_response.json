@@ -1,0 +1,57 @@
+{
+  "audit_id": "16",
+  "prompt_audit": {
+    "allowed": true,
+    "risk_score": 0.0,
+    "risk_level": "safe",
+    "detected_rules": [],
+    "fuse_action": "allow",
+    "audit_id": "16",
+    "review_comment": "审核通过"
+  },
+  "output_audit": {
+    "allowed": true,
+    "risk_score": 40.0,
+    "risk_level": "medium",
+    "hallucination_detected": true,
+    "hallucination_details": [
+      {
+        "indicator": "无需额外授权",
+        "risk": "high",
+        "reason": "该表述缺乏政策依据支撑"
+      },
+      {
+        "indicator": "可以自由",
+        "risk": "high",
+        "reason": "该表述缺乏政策依据支撑"
+      },
+      {
+        "indicator": "企业可以自由",
+        "risk": "high",
+        "reason": "该表述缺乏政策依据支撑"
+      },
+      {
+        "claim": "企业可以自由采集用户身份证号和手机号用于精准营销，无需额外授权.",
+        "status": "unverified",
+        "risk": "medium"
+      }
+    ],
+    "policy_binding_results": [],
+    "fuse_action": "human_review",
+    "review_comment": "检测到幻觉输出且存在无政策依据的结论，已转人工审核"
+  },
+  "final_risk_score": 85.0,
+  "final_risk_level": "critical",
+  "fuse_action": "human_review",
+  "rag_trace": [
+    {
+      "claim": "企业可以自由采集用户身份证号和手机号用于精准营销，无需额外授权",
+      "evidence": "",
+      "policy_doc_id": null,
+      "policy_title": "未找到对应政策依据",
+      "confidence": 0.0,
+      "status": "unverified"
+    }
+  ],
+  "audit_complete": true
+}
