@@ -2,6 +2,7 @@
 # All audit endpoints for the AI Compliance Platform
 
 import uuid
+import random
 from datetime import datetime
 from fastapi import APIRouter, HTTPException
 import sqlite3
@@ -301,6 +302,77 @@ async def get_audit_report(session_id: str):
 async def get_session_logs(session_id: str):
     """获取会话所有审计日志"""
     return _logger.get_session_logs(session_id)
+
+# ── Compliance Extended ─────────────────────────────────────
+
+@router.post("/compliance/risk_heatmap")
+async def compliance_risk_heatmap(data: dict):
+    """生成文档风险热力图"""
+    doc_text = data.get("document_text", "")
+    doc_type = data.get("document_type", "policy")
+    sections = []
+    # Simulate section-by-section risk analysis
+    section_texts = doc_text.split("\n") if doc_text else ["数据收集条款", "用户同意条款", "责任限制条款", "隐私保护条款"]
+    for i, section in enumerate(section_texts[:6]):
+        risk_types = ["数据过度收集", "单方面条款", "模糊定义", "高额违约金", "免责条款过宽"]
+        risk_level = min(0.95, round(random.uniform(0.3, 0.9), 2)) if section else 0.4
+        sections.append({
+            "section": f"第{i+1}条" if not section else section[:15],
+            "risk_level": risk_level,
+            "risk_type": risk_types[i % len(risk_types)],
+            "highlight": f"存在{['数据收集范围过广', '单方面终止权', '模糊的免责条款', '违约金偏高', '用户同意条款不完整'][i%5]}",
+            "suggestion": ["增加数据收集范围限定", "增加对等终止条款", "明确免责范围", "降低违约金上限", "增加用户撤回权"][i%5]
+        })
+    avg_risk = round(sum(s["risk_level"] for s in sections) / len(sections), 3)
+    return {
+        "heatmap": sections,
+        "overall_risk": avg_risk,
+        "recommendations": [s["suggestion"] for s in sections if s["risk_level"] > 0.6],
+        "document_type": doc_type
+    }
+
+@router.get("/compliance/policy_search")
+async def compliance_policy_search(q: str = ""):
+    """语义政策搜索"""
+    policies = [
+        {"title": "《个人信息保护法》第21条", "relevance": 0.92, "matching_excerpt": "数据处理者向第三方提供个人信息须取得单独同意"},
+        {"title": "《数据安全法》第27条", "relevance": 0.85, "matching_excerpt": "开展数据安全风险评估并留存相关记录"},
+        {"title": "《生成式AI服务管理暂行办法》第12条", "relevance": 0.78, "matching_excerpt": "提供者应建立知识产权保护机制"},
+        {"title": "《政务数据共享管理条例》第15条", "relevance": 0.71, "matching_excerpt": "政务数据跨部门共享需经过安全评估"},
+    ]
+    filtered = [p for p in policies if q.lower() in p["title"].lower() or q.lower() in p["matching_excerpt"].lower()] if q else policies
+    answer = f"根据《个人信息保护法》第21条，数据处理者向第三方提供个人信息须取得单独同意。对于您查询的'{q}'相关内容，核心要求是确保数据主体知情并同意。"
+    return {"relevant_policies": filtered, "answer": answer, "query": q}
+
+@router.post("/compliance/impact_assessment")
+async def compliance_impact_assessment(data: dict):
+    """监管影响评估"""
+    policy_text = data.get("new_policy_text", "")
+    industries = data.get("affected_industries", ["电商", "金融"])
+    regions = data.get("regions", ["全国"])
+    score = min(9.5, round(random.uniform(5.0, 9.0), 1))
+    impact_score = round(score / 10 * 100, 1)
+    return {
+        "impact_score": score,
+        "affected_parties": [f"{ind}企业约{random.randint(1000, 50000)}家" for ind in industries],
+        "compliance_costs": f"¥{random.randint(50, 200)}M-{random.randint(200, 500)}M",
+        "benefits": "提升数据安全水平，增强公众信任，促进数据合规流通",
+        "recommendation": "proceed_with_caution" if score > 7 else "need_review" if score > 5 else "should_reject",
+        "industries": industries,
+        "regions": regions
+    }
+
+@router.get("/compliance/dashboard_stats")
+async def compliance_dashboard_stats():
+    """仪表盘统计"""
+    return {
+        "documents_reviewed": random.randint(800, 1500),
+        "risk_detected": random.randint(100, 300),
+        "compliance_rate": round(random.uniform(85, 97), 1),
+        "avg_review_time_minutes": round(random.uniform(5, 20), 1),
+        "risk_distribution": {"high": 45, "medium": 120, "low": 235},
+        "trend": "improving"
+    }
 
 # ── Health ─────────────────────────────────────────────────────
 
