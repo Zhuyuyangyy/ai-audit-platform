@@ -1,0 +1,19 @@
+# AI Audit Platform Dependencies
+# ==============================
+# Web framework
+fastapi>=0.109.0
+uvicorn>=0.27.0
+pydantic>=2.0.0
+
+# Database
+sqlalchemy>=2.0.0
+aiosqlite>=0.19.0
+
+# HTTP client
+httpx>=0.26.0
+
+# Template engine
+jinja2>=3.1.0
+
+# File upload
+python-multipart>=0.0.6
