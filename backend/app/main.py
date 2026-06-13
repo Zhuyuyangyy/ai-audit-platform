@@ -55,9 +55,16 @@ async def root():
 @app.get("/frontend")
 async def frontend():
     """Serve the Vue3 frontend"""
-    index_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
+    # Try multiple possible locations
+    candidates = [
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "index.html"),  # from backend/app -> project root
+        os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "index.html"),  # from backend/app -> backend/frontend
+        os.path.join(os.path.dirname(__file__), "..", "frontend", "index.html"),  # original path
+    ]
+    for index_path in candidates:
+        index_path = os.path.normpath(index_path)
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
     return {"error": "Frontend not found. Please ensure frontend/index.html exists."}
 
 # Startup event

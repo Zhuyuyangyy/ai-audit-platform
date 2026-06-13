@@ -1,15 +1,19 @@
 # Report Generator
 # Generates full-chain audit reports
 
+import os
 import sqlite3
 from datetime import datetime
 from typing import Dict, List
 import json
 
 class ReportGenerator:
-    
-    def __init__(self, db_path: str = "D:/ZYY Project/ai-audit-platform/backend/ai_audit_platform.db"):
-        self.db_path = db_path
+
+    def __init__(self, db_path: str = None):
+        self.db_path = db_path or os.environ.get(
+            "DATABASE_PATH",
+            os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "ai_audit_platform.db"))
+        )
     
     def generate_session_report(self, session_id: str) -> Dict:
         """生成会话级别的完整审计报告"""

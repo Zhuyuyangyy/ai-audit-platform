@@ -1,18 +1,33 @@
 # RAG Tracer - 溯源链路校验
 # Binds every key conclusion to a policy document
+#
+# IMPLEMENTATION NOTE: "RAG traceability" currently uses SQL LIKE keyword
+# matching against the policy_documents and document_chunks tables. This is
+# a simplified heuristic, NOT a true vector-embedding RAG pipeline. Match
+# confidence scores reflect keyword overlap, not semantic similarity.
 
+import os
 import sqlite3
 from typing import List, Dict, Tuple
 import re
+
+_DEFAULT_DB = os.path.join(os.path.dirname(__file__), "..", "..", "ai_audit_platform.db")
 
 class RAGTracer:
     """
     RAG溯源校验器
     核心：对模型输出的每一句关键结论，绑定政策依据
+
+    LIMITATION: Matching is performed via SQL LIKE keyword search, not
+    vector embeddings. Confidence scores are keyword-overlap ratios and
+    should not be interpreted as semantic similarity scores.
     """
-    
-    def __init__(self, db_path: str = "D:/ZYY Project/ai-audit-platform/backend/ai_audit_platform.db"):
-        self.db_path = db_path
+
+    def __init__(self, db_path: str = None):
+        self.db_path = db_path or os.environ.get(
+            "DATABASE_PATH",
+            os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "ai_audit_platform.db"))
+        )
     
     def trace(self, output: str, audit_id: int = None) -> List[Dict]:
         """
@@ -57,19 +72,28 @@ class RAGTracer:
         return traces
     
     def _find_relevant_docs(self, sentence: str, cursor) -> List[Dict]:
-        """根据句子内容查找相关政策文档（关键词+语义匹配）"""
+        """
+        根据句子内容查找相关政策文档（关键词匹配）
+
+        LIMITATION: This uses SQL LIKE keyword matching, NOT vector-based
+        semantic search. Results are based on substring overlap and may
+        miss semantically related but lexically different documents.
+        """
         # 提取中文词语
         words = self._extract_keywords(sentence)
-        
+
         if not words:
             return []
-        
+
         results = []
-        
+
         # 策略1：从document_chunks精确匹配（PIPL等已分块的文档）
-        chunk_conditions = " OR ".join([f"chunk_text LIKE '%{w}%'" for w in words[:5]])
-        chunk_query = f"SELECT document_id, chunk_text FROM document_chunks WHERE {chunk_conditions} LIMIT 5"
-        cursor.execute(chunk_query)
+        # Use parameterized queries to prevent SQL injection
+        search_words = words[:5]
+        chunk_placeholders = " OR ".join(["chunk_text LIKE ?" for _ in search_words])
+        chunk_params = [f"%{w}%" for w in search_words]
+        chunk_query = f"SELECT document_id, chunk_text FROM document_chunks WHERE {chunk_placeholders} LIMIT 5"
+        cursor.execute(chunk_query, chunk_params)
         for row in cursor.fetchall():
             doc_id = row[0]
             relevance = sum(1 for w in words if w in row[1]) / len(words)
@@ -83,14 +107,18 @@ class RAGTracer:
                     "content": row[1],
                     "relevance_score": min(relevance + 0.1, 0.95)
                 })
-        
+
         if results:
             return results
-        
+
         # 策略2：从policy_documents全文匹配
-        doc_conditions = " OR ".join([f"(content LIKE '%{w}%' OR title LIKE '%{w}%')" for w in words[:5]])
-        doc_query = f"SELECT id, title, content FROM policy_documents WHERE {doc_conditions} LIMIT 5"
-        cursor.execute(doc_query)
+        # Use parameterized queries to prevent SQL injection
+        doc_placeholders = " OR ".join(["(content LIKE ? OR title LIKE ?)" for _ in search_words])
+        doc_params = []
+        for w in search_words:
+            doc_params.extend([f"%{w}%", f"%{w}%"])
+        doc_query = f"SELECT id, title, content FROM policy_documents WHERE {doc_placeholders} LIMIT 5"
+        cursor.execute(doc_query, doc_params)
         for row in cursor.fetchall():
             relevance = sum(1 for w in words if w in row[1] or w in row[2]) / len(words)
             results.append({
@@ -99,7 +127,7 @@ class RAGTracer:
                 "content": row[2][:300],
                 "relevance_score": min(relevance, 0.95)
             })
-        
+
         return results
     
     def _extract_keywords(self, text: str) -> List[str]:

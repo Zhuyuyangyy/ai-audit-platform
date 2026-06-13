@@ -27,7 +27,17 @@ from app.services.report_generator import ReportGenerator
 
 router = APIRouter(prefix="/api/v1", tags=["audit"])
 
-DB_PATH = "D:/ZYY Project/ai-audit-platform/backend/ai_audit_platform.db"
+# Shared disclaimer for endpoints that return simulated / placeholder data
+_DISCLAIMER_SIMULATED = (
+    "DISCLAIMER: This endpoint returns SIMULATED data (random or hardcoded "
+    "placeholders). It is NOT connected to a real analytics backend. "
+    "Do NOT use these values for production decisions."
+)
+
+DB_PATH = os.environ.get(
+    "DATABASE_PATH",
+    os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "ai_audit_platform.db"))
+)
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)

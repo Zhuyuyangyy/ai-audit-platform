@@ -5,7 +5,10 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.pool import StaticPool
 import os
 
-DATABASE_URL = "sqlite:///D:/ZYY Project/ai-audit-platform/backend/ai_audit_platform.db"
+_DB_DIR = os.path.dirname(os.path.abspath(__file__))
+_DEFAULT_DB_PATH = os.path.normpath(os.path.join(_DB_DIR, "..", "..", "ai_audit_platform.db"))
+_DATABASE_FILE = os.environ.get("DATABASE_PATH", _DEFAULT_DB_PATH)
+DATABASE_URL = f"sqlite:///{_DATABASE_FILE}"
 
 engine = create_engine(
     DATABASE_URL,
@@ -27,7 +30,7 @@ def get_db():
 def init_db():
     """Initialize database with all tables"""
     # Create tables using raw SQL first to avoid dependency on models
-    conn = sqlite3.connect("D:/ZYY Project/ai-audit-platform/backend/ai_audit_platform.db")
+    conn = sqlite3.connect(_DATABASE_FILE)
     cursor = conn.cursor()
     
     # Create tables

@@ -1,8 +1,9 @@
 # AI Audit Platform Dependencies
 # ==============================
+
 # Web framework
 fastapi>=0.109.0
-uvicorn>=0.27.0
+uvicorn[standard]>=0.27.0
 pydantic>=2.0.0
 
 # Database
@@ -17,3 +18,31 @@ jinja2>=3.1.0
 
 # File upload
 python-multipart>=0.0.6
+
+# ==============================
+# Testing Dependencies
+# ==============================
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.23.0
+pytest-mock>=3.12.0
+httpx>=0.26.0  # For TestClient
+
+# ==============================
+# Development Dependencies
+# ==============================
+ruff>=0.1.0  # Linter
+black>=23.0.0  # Code formatter
+mypy>=1.7.0  # Type checker
+
+# ==============================
+# Optional Dependencies
+# ==============================
+# For production deployment
+gunicorn>=21.2.0
+
+# For monitoring
+prometheus-client>=0.19.0
+
+# For logging
+loguru>=0.7.0
